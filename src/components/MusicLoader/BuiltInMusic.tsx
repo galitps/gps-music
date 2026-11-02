@@ -1,6 +1,8 @@
 
 // --- BUILT-IN REPERTOIRE DATA ---
-export const REPERTOIRE = [
+import type { MusicObject } from "@/types/music";
+
+export const REPERTOIRE: MusicObject[] = [
   {
     id: 'a-scale',
     title: 'A Major Scale',
