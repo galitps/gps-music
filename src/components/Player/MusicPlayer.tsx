@@ -100,6 +100,7 @@ export default function MusicPlayer({
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | undefined;
     let completionTimeoutId: ReturnType<typeof setTimeout> | undefined;
+    const noteTimeoutIds: ReturnType<typeof setTimeout>[] = [];
 
     if (!isPlaying) {
       setActiveBeat(-1);
@@ -111,6 +112,21 @@ export default function MusicPlayer({
     let beatCounter = 0;
     setActiveBeat(0);
 
+    let accumulatedBeats = 0;
+    currentMeasure.forEach((note, idx) => {
+      const noteStartMs = accumulatedBeats * beatDurationMs;
+      noteTimeoutIds.push(setTimeout(() => {
+        setActiveNoteIdx(idx);
+        if (audioPlayAlong) {
+          const pitchInfo = PITCH_MAP[note.pitch];
+          if (pitchInfo) {
+            playNoteAudio(pitchInfo.freq, (note.duration * 60) / bpm);
+          }
+        }
+      }, noteStartMs));
+      accumulatedBeats += note.duration;
+    });
+
     const runBeat = () => {
       if (beatCounter >= 4) {
         return;
@@ -118,29 +134,6 @@ export default function MusicPlayer({
 
       const beatNum = beatCounter % 4;
       setActiveBeat(beatNum);
-
-      let accumulatedBeats = 0;
-      let matchedNoteIdx = -1;
-
-      for (let i = 0; i < currentMeasure.length; i++) {
-        const note = currentMeasure[i];
-        if (
-          beatCounter >= accumulatedBeats &&
-          beatCounter < accumulatedBeats + note.duration
-        ) {
-          matchedNoteIdx = i;
-          if (beatCounter === accumulatedBeats && audioPlayAlong) {
-            const pitchInfo = PITCH_MAP[note.pitch];
-            if (pitchInfo) {
-              playNoteAudio(pitchInfo.freq, (note.duration * 60) / bpm);
-            }
-          }
-          break;
-        }
-        accumulatedBeats += note.duration;
-      }
-
-      setActiveNoteIdx(matchedNoteIdx);
 
       if (metronomeEnabled) {
         playClick(beatNum === 0);
@@ -177,6 +170,7 @@ export default function MusicPlayer({
       if (completionTimeoutId !== undefined) {
         clearTimeout(completionTimeoutId);
       }
+      noteTimeoutIds.forEach(clearTimeout);
     };
   }, [
     isPlaying,

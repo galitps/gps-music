@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { MusicObject } from "@/types/music";
+import React, { useState, useEffect } from 'react';
 import { REPERTOIRE } from "@/components/MusicLoader/BuiltInMusic";
 import MusicSelector from "@/components/MusicLoader/MusicSelector";
+import styles from "./NotesDisplay.module.css";
 import { 
-  Play, Pause, SkipForward, SkipBack, RotateCcw, Volume2, VolumeX, 
-  Settings, Music, Eye, Palette, Hash, Sparkles, ChevronRight, ChevronLeft,
-  Check, Metronome, Sliders
+  Play, Pause, RotateCcw, Volume2, Music, Eye, Palette, Hash, Sparkles,
+  ChevronRight, ChevronLeft, Metronome
 } from 'lucide-react';
 
 // --- VIOLIN COLOR CODING & STRING UTILS ---
@@ -60,8 +59,6 @@ type NotesDisplayProps = {
   setSelectedPiece: React.Dispatch<React.SetStateAction<string>>;
   completedSession: boolean;
   setCompletedSession: React.Dispatch<React.SetStateAction<boolean>>;
-  showSettings: boolean;
-  setShowSettings: React.Dispatch<React.SetStateAction<boolean>>;
   useColorCoding: boolean;
   setUseColorCoding: React.Dispatch<React.SetStateAction<boolean>>;
   showNoteNames: boolean;
@@ -69,7 +66,6 @@ type NotesDisplayProps = {
   showFingerings: boolean;
   setShowFingerings: React.Dispatch<React.SetStateAction<boolean>>;
   activeBeat: number;
-  setActiveBeat: React.Dispatch<React.SetStateAction<number>>;
   activeNoteIdx: number;
   setActiveNoteIdx: React.Dispatch<React.SetStateAction<number>>;
   bpm: number;
@@ -91,8 +87,6 @@ export default function NotesDisplay({
   setSelectedPiece,
   completedSession,
   setCompletedSession,
-  showSettings,
-  setShowSettings,
   useColorCoding,
   setUseColorCoding,
   showNoteNames,
@@ -100,7 +94,6 @@ export default function NotesDisplay({
   showFingerings,
   setShowFingerings,
   activeBeat,
-  setActiveBeat,
   activeNoteIdx,
   setActiveNoteIdx,
   bpm,
@@ -113,9 +106,7 @@ export default function NotesDisplay({
   setAudioPlayAlong
 }: NotesDisplayProps) {
 
-  const [repertoire, setRepertoire] = useState<MusicObject[]>(() => [
-    ...REPERTOIRE,
-  ]);
+  const repertoire = REPERTOIRE;
 
   const currentPiece =
     repertoire.find((piece) => piece.id === selectedPiece) ?? repertoire[0];
@@ -184,83 +175,170 @@ export default function NotesDisplay({
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans select-none overflow-x-hidden">
+    <div className={styles.screen}>
       
       {/* TOP BAR / HEADER */}
-      <header className="bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between shadow-lg">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-indigo-600 rounded-xl shadow-md text-white">
-            <Music className="w-7 h-7" />
+      <header className={styles.headerBar}>
+        <div className={styles.brand}>
+          <div className={styles.brandIcon}>
+            <Music className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold tracking-wide text-white flex items-center gap-2">
-              Paz's Violin Reader
-            </h1>
-            <p className="text-xs text-slate-400 font-medium">One Measure Sight-Reading</p>
-          </div>
+          <h1 className={styles.brandTitle}>
+            Paz&apos;s Violin Reader
+          </h1>
         </div>
 
-        {/* Quick Actions & Settings Toggle */}
-        <div className="flex items-center space-x-2">
-          <button 
-            onClick={() => setShowSettings(!showSettings)}
-            className={`p-3 rounded-xl font-semibold flex items-center gap-2 transition-all ${
-              showSettings ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
-            }`}
-          >
-            <Sliders className="w-5 h-5" />
-            <span className="hidden sm:inline">Display & Options</span>
-          </button>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col lg:flex-row p-4 md:p-6 gap-6 max-w-7xl mx-auto w-full">
-        
-        {/* LEFT / CENTER: REPERTOIRE MENU & NOTATION DISPLAY */}
-        <div className="flex-1 flex flex-col gap-6">
-          
+        <div role="group" aria-label="Practice controls" className={styles.controlBar}>
           <MusicSelector
             repertoire={repertoire}
             selectedPieceId={selectedPiece}
             onSelectPiece={handleSelectPiece}
           />
 
+          <div className={styles.measureControls}>
+            <button
+              onClick={handlePrevMeasure}
+              disabled={currentMeasureIdx === 0}
+              aria-label="Previous measure"
+              title="Previous measure"
+              className={styles.iconButton}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={handleResetPiece}
+              aria-label="Restart piece"
+              title="Restart piece"
+              className={styles.iconButton}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleNextMeasure}
+              disabled={currentMeasureIdx >= currentPiece.measures.length - 1}
+              aria-label="Next measure"
+              title="Next measure"
+              className={styles.iconButton}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          <button
+            onClick={handleAdvanceOrPlay}
+            aria-label={isPlaying ? "Pause playback" : "Play measure"}
+            title={isPlaying ? "Pause playback" : "Play measure"}
+            className={`${styles.playButton} ${isPlaying ? styles.playing : styles.stopped}`}
+          >
+            {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+            <span>{isPlaying ? "Pause" : "Play"}</span>
+          </button>
+
+          <label className={styles.tempoControl}>
+            <Metronome aria-hidden="true" />
+            <span className={styles.visuallyHidden}>Tempo</span>
+            <output className={styles.tempoValue}>{bpm}</output>
+            <input
+              type="range"
+              min="40"
+              max="160"
+              value={bpm}
+              onChange={(event) => setBpm(Number(event.target.value))}
+              aria-label="Tempo in beats per minute"
+              className={styles.tempoSlider}
+            />
+            <span>BPM</span>
+          </label>
+
+          <button
+            onClick={() => setUseAutoAdvance(!useAutoAdvance)}
+            aria-pressed={useAutoAdvance}
+            title="Toggle automatic measure advance"
+            className={`${styles.autoAdvanceButton} ${useAutoAdvance ? styles.enabled : ""}`}
+          >
+            Auto
+          </button>
+
+          <label className={styles.audioToggle}>
+            <input
+              type="checkbox"
+              checked={metronomeEnabled}
+              onChange={(event) => setMetronomeEnabled(event.target.checked)}
+            />
+            <Metronome aria-hidden="true" />
+            <span>Beat</span>
+          </label>
+          <label className={styles.audioToggle}>
+            <input
+              type="checkbox"
+              checked={audioPlayAlong}
+              onChange={(event) => setAudioPlayAlong(event.target.checked)}
+            />
+            <Volume2 aria-hidden="true" />
+            <span>Audio</span>
+          </label>
+
+          <div className={styles.displayOptions}>
+            <label title="Color notes by violin string" className={styles.displayToggle}>
+              <input type="checkbox" checked={useColorCoding} onChange={(event) => setUseColorCoding(event.target.checked)} />
+              <Palette aria-hidden="true" />
+              <span>Color</span>
+            </label>
+            <label title="Show note names" className={styles.displayToggle}>
+              <input type="checkbox" checked={showNoteNames} onChange={(event) => setShowNoteNames(event.target.checked)} />
+              <Eye aria-hidden="true" />
+              <span>Names</span>
+            </label>
+            <label title="Show finger numbers" className={styles.displayToggle}>
+              <input type="checkbox" checked={showFingerings} onChange={(event) => setShowFingerings(event.target.checked)} />
+              <Hash aria-hidden="true" />
+              <span>Fingers</span>
+            </label>
+          </div>
+        </div>
+      </header>
+
+      {/* MAIN CONTENT AREA */}
+      <main className={styles.main}>
+        
+        {/* LEFT / CENTER: REPERTOIRE MENU & NOTATION DISPLAY */}
+        <div className={styles.scoreLayout}>
+          
           {/* MEASURE NOTATION DISPLAY CARD (HIGH CONTRAST, LARGE) */}
-          <div className="flex-1 bg-slate-950 border-2 border-slate-700 rounded-3xl p-4 md:p-8 flex flex-col justify-between shadow-2xl relative min-h-[380px] overflow-hidden">
+          <section className={styles.scoreCard}>
             
             {/* Header info inside display */}
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-2">
-              <div>
-                <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider block">Current Piece</span>
-                <h2 className="text-2xl md:text-3xl font-extrabold text-white">{currentPiece.title}</h2>
+            <div className={styles.scoreHeader}>
+              <div className={styles.pieceHeading}>
+                <span className={styles.sectionLabel}>Current Piece</span>
+                <h2 className={styles.pieceTitle}>{currentPiece.title}</h2>
               </div>
               
-              <div className="text-right">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Measure</span>
-                <div className="text-2xl md:text-3xl font-black text-amber-400">
-                  {currentMeasureIdx + 1} <span className="text-slate-500 text-lg font-bold">/ {currentPiece.measures.length}</span>
+              <div className={styles.measureHeading}>
+                <span className={styles.sectionLabel}>Measure</span>
+                <div className={styles.measureCount}>
+                  {currentMeasureIdx + 1}<span> / {currentPiece.measures.length}</span>
                 </div>
               </div>
             </div>
 
             {/* COMPLETION BANNER */}
             {completedSession ? (
-              <div className="my-auto py-12 text-center bg-indigo-950/60 border-2 border-indigo-500/50 rounded-2xl p-6 shadow-inner animate-pulse">
-                <Sparkles className="w-16 h-16 text-amber-400 mx-auto mb-3" />
-                <h3 className="text-3xl font-extrabold text-white mb-2">Piece Complete!</h3>
-                <p className="text-lg text-indigo-200 mb-6">Excellent work! Time for your final bow!</p>
+              <div className={styles.completionMessage}>
+                <Sparkles aria-hidden="true" className={styles.completionIcon} />
+                <h3>Piece Complete!</h3>
+                <p>Excellent work! Time for your final bow!</p>
                 <button
                   onClick={handleResetPiece}
-                  className="px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xl rounded-2xl shadow-xl transition-all transform hover:scale-105 flex items-center gap-2 mx-auto"
+                  className={styles.restartButton}
                 >
-                  <RotateCcw className="w-6 h-6" />
+                  <RotateCcw aria-hidden="true" />
                   <span>Play Again From Start</span>
                 </button>
               </div>
             ) : (
               /* NOTATION CANVAS / SVG */
-              <div className="my-auto py-6 flex flex-col items-center justify-center relative">
+              <div className={styles.notationArea}>
                 
                 {/* SVG SHEET MUSIC DISPLAY */}
                 <MeasureSVG 
@@ -272,108 +350,24 @@ export default function NotesDisplay({
                 />
 
                 {/* BEAT PROGRESS INDICATOR */}
-                <div className="flex gap-3 mt-6 items-center">
+                <div className={styles.beatProgress} aria-label="Beat progress">
                   {[0, 1, 2, 3].map((b) => (
                     <div 
                       key={b}
-                      className={`h-4 rounded-full transition-all duration-150 ${
-                        activeBeat === b 
-                          ? 'w-10 bg-amber-400 shadow-lg shadow-amber-500/50 scale-110' 
-                          : 'w-4 bg-slate-800'
-                      }`}
+                      className={`${styles.beatIndicator} ${activeBeat === b ? styles.activeBeat : ""}`}
                     />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* CONTROLS / ADVANCE BUTTON (SUPER ACCESSIBLE) */}
-            <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col sm:flex-row gap-3 items-center justify-between">
-              
-              {/* Prev / Next measure navigation */}
-              <div className="flex gap-2 w-full sm:w-auto">
-                <button
-                  onClick={handlePrevMeasure}
-                  disabled={currentMeasureIdx === 0}
-                  className="flex-1 sm:flex-none p-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition"
-                  title="Previous Measure"
-                >
-                  <ChevronLeft className="w-7 h-7" />
-                  <span className="sm:hidden md:inline">Prev</span>
-                </button>
-
-                <button
-                  onClick={handleResetPiece}
-                  className="p-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl font-bold flex items-center justify-center transition"
-                  title="Restart Piece"
-                >
-                  <RotateCcw className="w-6 h-6" />
-                </button>
-
-                <button
-                  onClick={handleNextMeasure}
-                  disabled={currentMeasureIdx >= currentPiece.measures.length - 1}
-                  className="flex-1 sm:flex-none p-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition"
-                  title="Next Measure"
-                >
-                  <span className="sm:hidden md:inline">Next</span>
-                  <ChevronRight className="w-7 h-7" />
-                </button>
-              </div>
-
-              {/* GIANT PRIMARY ADVANCE / PLAY BUTTON */}
-              <button
-                onClick={handleAdvanceOrPlay}
-                className={`w-full sm:flex-1 py-5 px-8 rounded-2xl font-black text-xl md:text-2xl shadow-xl flex items-center justify-center gap-3 transition-all transform active:scale-95 ${
-                  isPlaying 
-                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/30' 
-                    : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30'
-                }`}
-              >
-                {isPlaying ? (
-                  <>
-                    <Pause className="w-8 h-8 fill-current" />
-                    <span>PLAYING... (TAP TO PAUSE)</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-8 h-8 fill-current" />
-                    <span>PLAY MEASURE</span>
-                  </>
-                )}
-              </button>
-
-            </div>
-
-          </div>
+          </section>
 
           {/* STRING COLOR LEGEND */}
-          {useColorCoding && (
-            <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex flex-wrap items-center justify-around gap-3 shadow-md">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">String Color Key:</span>
-              <div className="flex items-center gap-2">
-                <span className="w-4 h-4 rounded-full bg-red-500 shadow-sm"></span>
-                <span className="text-sm font-bold text-red-400">G String</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-4 h-4 rounded-full bg-yellow-500 shadow-sm"></span>
-                <span className="text-sm font-bold text-yellow-400">D String</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-4 h-4 rounded-full bg-blue-500 shadow-sm"></span>
-                <span className="text-sm font-bold text-blue-400">A String</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-4 h-4 rounded-full bg-green-500 shadow-sm"></span>
-                <span className="text-sm font-bold text-green-400">E String</span>
-              </div>
-            </div>
-          )}
-
         </div>
 
         {/* RIGHT: CONTROL PANEL & DISPLAY TOGGLES (SIDEBAR OR TOGGLED) */}
-        <div className={`w-full lg:w-80 flex flex-col gap-5 ${showSettings ? 'block' : 'hidden lg:flex'}`}>
+        <div className={styles.legacySidebar} aria-hidden="true">
           
           {/* TEMPO & PLAYBACK MODE */}
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-lg">
@@ -525,7 +519,7 @@ export default function NotesDisplay({
 
         </div>
 
-      </div>
+      </main>
 
     </div>
   );
@@ -554,7 +548,7 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
   return (
     <svg 
       viewBox={`0 0 ${width} ${height}`} 
-      className="w-full max-w-3xl h-auto overflow-visible select-none"
+      className={styles.notationSvg}
     >
       {/* Background container glow */}
       <rect x="0" y="0" width={width} height={height} rx="16" fill="#020617" />
@@ -593,6 +587,12 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
         const noteColor = useColorCoding ? stringInfo.hex : '#F8FAFC';
 
         const cx = notePositionsX[idx] || (140 + idx * 100);
+        const baseDuration = 2 ** Math.floor(Math.log2(note.duration));
+        const isDotted = note.duration === baseDuration * 1.5;
+        const noteValue = isDotted ? baseDuration : note.duration;
+        const hasStem = noteValue < 4;
+        const hasOpenHead = noteValue >= 2;
+        const flagCount = noteValue < 1 ? Math.round(Math.log2(1 / noteValue)) : 0;
 
         // Pitch step mapping: E4 (bottom line) is pitchStep = 2.
         // Y position formula based on pitchStep from E4
@@ -601,6 +601,8 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
 
         const isActive = activeNoteIdx === idx;
         const stemUp = noteY > staffLines[2]; // Stem up if below middle line
+        const stemX = stemUp ? cx + 11 : cx - 11;
+        const stemEndY = stemUp ? noteY - 48 : noteY + 48;
 
         return (
           <g key={idx} className="transition-all duration-200">
@@ -648,21 +650,50 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
               rx="13" 
               ry="9.5" 
               transform={`rotate(-20 ${cx} ${noteY})`}
-              fill={isActive ? '#FFFFFF' : noteColor} 
-              stroke={isActive ? noteColor : '#020617'}
+              fill={hasOpenHead ? '#020617' : isActive ? '#FFFFFF' : noteColor}
+              stroke={isActive ? '#FFFFFF' : hasOpenHead ? noteColor : '#020617'}
               strokeWidth="2"
             />
 
-            {/* STEM */}
-            <line 
-              x1={stemUp ? cx + 11 : cx - 11} 
-              y1={noteY} 
-              x2={stemUp ? cx + 11 : cx - 11} 
-              y2={stemUp ? noteY - 48 : noteY + 48} 
-              stroke={isActive ? '#FFFFFF' : noteColor} 
-              strokeWidth="3.5" 
-              strokeLinecap="round"
-            />
+            {hasStem && (
+              <>
+                <line
+                  x1={stemX}
+                  y1={noteY}
+                  x2={stemX}
+                  y2={stemEndY}
+                  stroke={isActive ? '#FFFFFF' : noteColor}
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                />
+                {Array.from({ length: flagCount }, (_, flagIdx) => {
+                  const flagY = stemEndY + (stemUp ? flagIdx : -flagIdx) * 10;
+                  const flagPath = stemUp
+                    ? `M ${stemX} ${flagY} C ${stemX + 4} ${flagY + 8}, ${stemX + 20} ${flagY + 8}, ${stemX + 13} ${flagY + 20}`
+                    : `M ${stemX} ${flagY} C ${stemX - 4} ${flagY - 8}, ${stemX - 20} ${flagY - 8}, ${stemX - 13} ${flagY - 20}`;
+
+                  return (
+                    <path
+                      key={flagIdx}
+                      d={flagPath}
+                      fill="none"
+                      stroke={isActive ? '#FFFFFF' : noteColor}
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                    />
+                  );
+                })}
+              </>
+            )}
+
+            {isDotted && (
+              <circle
+                cx={cx + 22}
+                cy={noteY - 2}
+                r="3.5"
+                fill={isActive ? '#FFFFFF' : noteColor}
+              />
+            )}
 
             {/* FINGERINGS (Above staff/note) */}
             {showFingerings && (

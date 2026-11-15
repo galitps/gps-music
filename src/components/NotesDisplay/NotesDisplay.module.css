@@ -1,0 +1,445 @@
+:global(html),
+:global(body) {
+  height: 100%;
+  margin: 0;
+}
+
+.screen,
+.screen * {
+  box-sizing: border-box;
+}
+
+.screen {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0f172a;
+  color: #f1f5f9;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.headerBar {
+  z-index: 1;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #334155;
+  background: #1e293b;
+  box-shadow: 0 4px 12px rgb(2 6 23 / 25%);
+}
+
+.brand {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.brandIcon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 10px;
+  background: #4f46e5;
+  color: white;
+}
+
+.brandTitle {
+  margin: 0;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.controlBar {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 9px;
+  overflow-x: auto;
+  padding: 3px 1px 5px;
+  scrollbar-color: #475569 transparent;
+  scrollbar-width: thin;
+}
+
+.measureControls,
+.displayOptions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding-left: 9px;
+  border-left: 1px solid #475569;
+}
+
+.iconButton,
+.playButton,
+.autoAdvanceButton,
+.audioToggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 120ms ease, opacity 120ms ease;
+}
+
+.iconButton {
+  width: 36px;
+  padding: 7px;
+  background: #334155;
+  color: #f8fafc;
+}
+
+.iconButton:hover:not(:disabled) {
+  background: #475569;
+}
+
+.iconButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.playButton {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.playing {
+  background: #f59e0b;
+  color: #111827;
+}
+
+.stopped {
+  background: #10b981;
+  color: #052e16;
+}
+
+.playing:hover {
+  background: #fbbf24;
+}
+
+.stopped:hover {
+  background: #34d399;
+}
+
+.tempoControl {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding-left: 9px;
+  border-left: 1px solid #475569;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tempoControl > svg,
+.audioToggle > svg,
+.displayToggle > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tempoControl > svg {
+  color: #818cf8;
+}
+
+.tempoValue {
+  width: 24px;
+  color: #fff;
+  font-family: monospace;
+  font-size: 14px;
+  text-align: right;
+}
+
+.tempoSlider {
+  width: 76px;
+  accent-color: #6366f1;
+}
+
+.autoAdvanceButton {
+  padding: 7px 10px;
+  background: #334155;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.autoAdvanceButton:hover,
+.enabled {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.audioToggle {
+  padding: 7px 9px;
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.audioToggle input,
+.displayToggle input {
+  margin: 0;
+  accent-color: #6366f1;
+}
+
+.displayOptions {
+  gap: 9px;
+}
+
+.displayToggle {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: #e2e8f0;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.main {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px;
+}
+
+.scoreLayout {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.scoreCard {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  padding: clamp(14px, 3vw, 32px);
+  border: 2px solid #334155;
+  border-radius: 22px;
+  background: #020617;
+  box-shadow: 0 18px 36px rgb(2 6 23 / 30%);
+}
+
+.scoreHeader {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.pieceHeading {
+  min-width: 0;
+}
+
+.sectionLabel {
+  display: block;
+  color: #818cf8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pieceTitle {
+  overflow: hidden;
+  margin: 3px 0 0;
+  color: #fff;
+  font-size: clamp(20px, 3vw, 30px);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.measureHeading {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.measureHeading .sectionLabel {
+  color: #94a3b8;
+}
+
+.measureCount {
+  color: #fbbf24;
+  font-size: clamp(21px, 3vw, 30px);
+  font-weight: 900;
+}
+
+.measureCount span {
+  color: #64748b;
+  font-size: 0.62em;
+  font-weight: 700;
+}
+
+.notationArea {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 0;
+}
+
+.notationSvg {
+  display: block;
+  width: min(100%, 1000px);
+  max-height: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.beatProgress {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.beatIndicator {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: #1e293b;
+  transition: width 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.activeBeat {
+  width: 38px;
+  transform: scale(1.08);
+  background: #fbbf24;
+  box-shadow: 0 0 14px rgb(245 158 11 / 45%);
+}
+
+.completionMessage {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  padding: 24px;
+  border: 1px solid #6366f1;
+  border-radius: 18px;
+  background: rgb(49 46 129 / 35%);
+  text-align: center;
+}
+
+.completionIcon {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 12px;
+  color: #fbbf24;
+}
+
+.completionMessage h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: clamp(24px, 4vw, 34px);
+}
+
+.completionMessage p {
+  margin: 0 0 20px;
+  color: #c7d2fe;
+}
+
+.restartButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 12px;
+  background: #f59e0b;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.restartButton:hover {
+  background: #fbbf24;
+}
+
+.legacySidebar {
+  display: none !important;
+}
+
+@media (max-width: 1000px) {
+  .headerBar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .controlBar {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .main {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 520px) {
+  .brandTitle {
+    font-size: 15px;
+  }
+
+  .scoreCard {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .beatProgress {
+    gap: 8px;
+    margin-top: 12px;
+  }
+}

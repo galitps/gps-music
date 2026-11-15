@@ -11,7 +11,6 @@ export default function GPSMusicApp () {
   const [currentMeasureIdx, setCurrentMeasureIdx] = useState(0);
   const [selectedPiece, setSelectedPiece] = useState(REPERTOIRE[0].id);
   const [completedSession, setCompletedSession] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [useColorCoding,setUseColorCoding] = useState(true);
   const [showNoteNames, setShowNoteNames] = useState(true);
   const [showFingerings, setShowFingerings] = useState(true);
@@ -35,8 +34,6 @@ export default function GPSMusicApp () {
         setSelectedPiece={setSelectedPiece}
         completedSession={completedSession}
         setCompletedSession={setCompletedSession}
-        showSettings={showSettings}
-        setShowSettings={setShowSettings}
         useColorCoding={useColorCoding}
         setUseColorCoding={setUseColorCoding}
         showNoteNames={showNoteNames}
@@ -44,7 +41,6 @@ export default function GPSMusicApp () {
         showFingerings={showFingerings}
         setShowFingerings={setShowFingerings}
         activeBeat={activeBeat}
-        setActiveBeat={setActiveBeat}
         activeNoteIdx={activeNoteIdx}
         setActiveNoteIdx={setActiveNoteIdx}
         bpm={bpm}

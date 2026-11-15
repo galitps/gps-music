@@ -1,0 +1,48 @@
+.repertoireControl {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.repertoireIcon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  color: #818cf8;
+}
+
+.repertoireDropdown {
+  max-width: 230px;
+  min-height: 36px;
+  padding: 6px 30px 6px 10px;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #334155;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.repertoireDropdown:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+}
+
+.repertoireDropdown option {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
