@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { REPERTOIRE } from "@/components/MusicLoader/BuiltInMusic";
+import React, { useState, useEffect, useRef } from 'react';
 import MusicSelector from "@/components/MusicLoader/MusicSelector";
 import styles from "./NotesDisplay.module.css";
+import { getMeasureBeatCount, TIME_SIGNATURES } from "@/types/music";
+import type { MeasureObject, MusicObject } from "@/types/music";
 import { 
   Play, Pause, RotateCcw, Volume2, Music, Eye, Palette, Hash, Sparkles,
-  ChevronRight, ChevronLeft, Metronome
+  ChevronRight, ChevronLeft, Metronome, Pencil, Save, Upload, Plus, Trash2,
+  ArrowUp, ArrowDown
 } from 'lucide-react';
 
 // --- VIOLIN COLOR CODING & STRING UTILS ---
@@ -38,6 +40,9 @@ export const PITCH_MAP = {
   'A5': { string: 'E', finger: 3, pitchStep: 12, noteName: 'A', freq: 880.00 },
 };
 
+const PITCHES = Object.keys(PITCH_MAP);
+const NOTE_DURATIONS = [0.5, 1, 1.5, 2, 3, 4];
+
 
 
 // Display staff, key signature, time signature
@@ -51,6 +56,10 @@ export const PITCH_MAP = {
     // For any other Metronome setting, use rate x number of beats per measure.
 
 type NotesDisplayProps = {
+  repertoire: MusicObject[];
+  onCreateNewPiece: () => void;
+  onUpdatePiece: (piece: MusicObject) => void;
+  onImportPieces: (pieces: MusicObject[]) => void;
   isPlaying: boolean;
   setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   currentMeasureIdx: number;
@@ -78,7 +87,23 @@ type NotesDisplayProps = {
   setAudioPlayAlong: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
+type MeasureSVGProps = {
+  measure: MeasureObject;
+  timeSignature: string;
+  activeNoteIdx: number;
+  showNoteNames: boolean;
+  showFingerings: boolean;
+  useColorCoding: boolean;
+  isEditing: boolean;
+  selectedEditNoteIdx: number;
+  onSelectNote: (index: number) => void;
+};
+
 export default function NotesDisplay({
+  repertoire,
+  onCreateNewPiece,
+  onUpdatePiece,
+  onImportPieces,
   isPlaying,
   setIsPlaying,
   currentMeasureIdx,
@@ -105,15 +130,22 @@ export default function NotesDisplay({
   audioPlayAlong,
   setAudioPlayAlong
 }: NotesDisplayProps) {
-
-  const repertoire = REPERTOIRE;
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedEditNoteIdx, setSelectedEditNoteIdx] = useState(-1);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const currentPiece =
     repertoire.find((piece) => piece.id === selectedPiece) ?? repertoire[0];
+  const currentMeasure = currentPiece.measures[currentMeasureIdx] ?? [];
+  const measureBeatCount = getMeasureBeatCount(currentPiece.timeSignature);
+  const selectedEditNote = currentMeasure[selectedEditNoteIdx];
 
   // --- KEYBOARD SHORTCUT (Spacebar to Advance / Play) ---
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isEditing || (e.target instanceof HTMLElement && ["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName))) {
+        return;
+      }
       if (e.code === 'Space') {
         e.preventDefault();
         handleAdvanceOrPlay();
@@ -125,7 +157,7 @@ export default function NotesDisplay({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, currentMeasureIdx, selectedPiece]);
+  }, [isPlaying, currentMeasureIdx, selectedPiece, isEditing]);
 
   // Handlers
   const handleAdvanceOrPlay = () => {
@@ -166,6 +198,161 @@ export default function NotesDisplay({
     setCurrentMeasureIdx(0);
     setIsPlaying(false);
     setCompletedSession(false);
+    setSelectedEditNoteIdx(-1);
+  };
+
+  const updateCurrentPiece = (update: (piece: MusicObject) => MusicObject) => {
+    onUpdatePiece(update(currentPiece));
+  };
+
+  const handleAddNote = () => {
+    const note = { pitch: currentMeasure.at(-1)?.pitch ?? "A4", duration: 1 };
+    const split = splitMeasureByCapacity(
+      [...currentMeasure, note],
+      measureBeatCount,
+      currentMeasure.length,
+    );
+    updateCurrentPiece((piece) => ({
+      ...piece,
+      measures: [
+        ...piece.measures.slice(0, currentMeasureIdx),
+        ...split.measures,
+        ...piece.measures.slice(currentMeasureIdx + 1),
+      ],
+    }));
+    if (split.selectedLocation) {
+      setCurrentMeasureIdx(currentMeasureIdx + split.selectedLocation.measureOffset);
+      setSelectedEditNoteIdx(split.selectedLocation.noteIndex);
+    }
+  };
+
+  const handleDeleteNote = () => {
+    if (!selectedEditNote) return;
+    updateCurrentPiece((piece) => ({
+      ...piece,
+      measures: piece.measures.map((measure, idx) =>
+        idx === currentMeasureIdx
+          ? measure.filter((_, noteIdx) => noteIdx !== selectedEditNoteIdx)
+          : measure,
+      ),
+    }));
+    setSelectedEditNoteIdx(Math.min(selectedEditNoteIdx, currentMeasure.length - 2));
+  };
+
+  const handleMoveNote = (step: number) => {
+    if (!selectedEditNote) return;
+    const pitchIdx = PITCHES.indexOf(selectedEditNote.pitch);
+    const nextPitch = PITCHES[pitchIdx + step];
+    if (!nextPitch) return;
+    updateCurrentPiece((piece) => ({
+      ...piece,
+      measures: piece.measures.map((measure, idx) =>
+        idx === currentMeasureIdx
+          ? measure.map((note, noteIdx) =>
+              noteIdx === selectedEditNoteIdx ? { ...note, pitch: nextPitch } : note,
+            )
+          : measure,
+      ),
+    }));
+  };
+
+  const handleChangeDuration = (duration: number) => {
+    if (!selectedEditNote) return;
+    const updatedMeasure = currentMeasure.map((note, noteIdx) =>
+      noteIdx === selectedEditNoteIdx ? { ...note, duration } : note,
+    );
+    const split = splitMeasureByCapacity(
+      updatedMeasure,
+      measureBeatCount,
+      selectedEditNoteIdx,
+    );
+    updateCurrentPiece((piece) => ({
+      ...piece,
+      measures: [
+        ...piece.measures.slice(0, currentMeasureIdx),
+        ...split.measures,
+        ...piece.measures.slice(currentMeasureIdx + 1),
+      ],
+    }));
+    if (split.selectedLocation) {
+      setCurrentMeasureIdx(currentMeasureIdx + split.selectedLocation.measureOffset);
+      setSelectedEditNoteIdx(split.selectedLocation.noteIndex);
+    }
+  };
+
+  const handleChangeTimeSignature = (timeSignature: string) => {
+    const nextBeatCount = getMeasureBeatCount(timeSignature);
+    if (currentPiece.measures.some((measure) => measure.some((note) => note.duration > nextBeatCount))) {
+      window.alert(`Shorten any note longer than ${nextBeatCount} beats before changing to ${timeSignature}.`);
+      return;
+    }
+
+    const measures: MeasureObject[] = [];
+    let updatedCurrentMeasureIdx = 0;
+    currentPiece.measures.forEach((measure, idx) => {
+      if (idx === currentMeasureIdx) {
+        updatedCurrentMeasureIdx = measures.length;
+      }
+      measures.push(...splitMeasureByCapacity(measure, nextBeatCount).measures);
+    });
+
+    updateCurrentPiece((piece) => ({ ...piece, timeSignature, measures }));
+    setCurrentMeasureIdx(updatedCurrentMeasureIdx);
+    setSelectedEditNoteIdx(-1);
+  };
+
+  const handleAddMeasure = () => {
+    updateCurrentPiece((piece) => ({ ...piece, measures: [...piece.measures, []] }));
+    setCurrentMeasureIdx(currentPiece.measures.length);
+    setSelectedEditNoteIdx(-1);
+  };
+
+  const handleDeleteMeasure = () => {
+    if (currentPiece.measures.length <= 1) return;
+    updateCurrentPiece((piece) => ({
+      ...piece,
+      measures: piece.measures.filter((_, idx) => idx !== currentMeasureIdx),
+    }));
+    setCurrentMeasureIdx(Math.max(0, currentMeasureIdx - 1));
+    setSelectedEditNoteIdx(-1);
+  };
+
+  const handleSavePiece = () => {
+    if (!currentPiece.title.trim()) {
+      window.alert("Give the piece a name before saving.");
+      return;
+    }
+
+    const file = new Blob([JSON.stringify(currentPiece, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(file);
+    const downloadLink = document.createElement("a");
+    downloadLink.href = url;
+    downloadLink.download = `${currentPiece.title.trim().replace(/[^\w-]+/g, "-") || "music"}.json`;
+    downloadLink.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      const candidates = Array.isArray(parsed) ? parsed : [parsed];
+      const importedPieces = candidates.filter(isMusicObject);
+      if (candidates.length === 0 || importedPieces.length !== candidates.length) {
+        throw new Error("The file must contain one piece or an array of valid pieces.");
+      }
+      setSelectedEditNoteIdx(-1);
+      onImportPieces(importedPieces);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The file could not be read.";
+      window.alert(`Unable to import music: ${message}`);
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const handleResetPiece = () => {
@@ -188,113 +375,160 @@ export default function NotesDisplay({
           </h1>
         </div>
 
-        <div role="group" aria-label="Practice controls" className={styles.controlBar}>
+        <div role="group" aria-label={isEditing ? "Music editing controls" : "Practice controls"} className={styles.controlBar}>
           <MusicSelector
             repertoire={repertoire}
             selectedPieceId={selectedPiece}
             onSelectPiece={handleSelectPiece}
+            onCreateNew={() => {
+              onCreateNewPiece();
+              setIsPlaying(false);
+              setIsEditing(true);
+              setSelectedEditNoteIdx(-1);
+            }}
           />
 
-          <div className={styles.measureControls}>
-            <button
-              onClick={handlePrevMeasure}
-              disabled={currentMeasureIdx === 0}
-              aria-label="Previous measure"
-              title="Previous measure"
-              className={styles.iconButton}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              onClick={handleResetPiece}
-              aria-label="Restart piece"
-              title="Restart piece"
-              className={styles.iconButton}
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
-            <button
-              onClick={handleNextMeasure}
-              disabled={currentMeasureIdx >= currentPiece.measures.length - 1}
-              aria-label="Next measure"
-              title="Next measure"
-              className={styles.iconButton}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
-
           <button
-            onClick={handleAdvanceOrPlay}
-            aria-label={isPlaying ? "Pause playback" : "Play measure"}
-            title={isPlaying ? "Pause playback" : "Play measure"}
-            className={`${styles.playButton} ${isPlaying ? styles.playing : styles.stopped}`}
+            type="button"
+            onClick={() => {
+              setIsPlaying(false);
+              setIsEditing((editing) => !editing);
+              setSelectedEditNoteIdx(-1);
+            }}
+            aria-pressed={isEditing}
+            className={`${styles.modeButton} ${isEditing ? styles.modeEdit : ""}`}
           >
-            {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
-            <span>{isPlaying ? "Pause" : "Play"}</span>
+            {isEditing ? <Play aria-hidden="true" /> : <Pencil aria-hidden="true" />}
+            {isEditing ? "Play Mode" : "Edit Mode"}
           </button>
 
-          <label className={styles.tempoControl}>
-            <Metronome aria-hidden="true" />
-            <span className={styles.visuallyHidden}>Tempo</span>
-            <output className={styles.tempoValue}>{bpm}</output>
-            <input
-              type="range"
-              min="40"
-              max="160"
-              value={bpm}
-              onChange={(event) => setBpm(Number(event.target.value))}
-              aria-label="Tempo in beats per minute"
-              className={styles.tempoSlider}
-            />
-            <span>BPM</span>
-          </label>
+          {isEditing ? (
+            <>
+              <button type="button" onClick={handleSavePiece} className={styles.editorAction}>
+                <Save aria-hidden="true" />
+                Save JSON
+              </button>
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                className={styles.editorAction}
+              >
+                <Upload aria-hidden="true" />
+                Import
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImportFile}
+                className={styles.fileInput}
+                aria-label="Import music JSON"
+              />
+            </>
+          ) : (
+            <>
+              <div className={styles.measureControls}>
+                <button
+                  onClick={handlePrevMeasure}
+                  disabled={currentMeasureIdx === 0}
+                  aria-label="Previous measure"
+                  title="Previous measure"
+                  className={styles.iconButton}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleResetPiece}
+                  aria-label="Restart piece"
+                  title="Restart piece"
+                  className={styles.iconButton}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleNextMeasure}
+                  disabled={currentMeasureIdx >= currentPiece.measures.length - 1}
+                  aria-label="Next measure"
+                  title="Next measure"
+                  className={styles.iconButton}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
 
-          <button
-            onClick={() => setUseAutoAdvance(!useAutoAdvance)}
-            aria-pressed={useAutoAdvance}
-            title="Toggle automatic measure advance"
-            className={`${styles.autoAdvanceButton} ${useAutoAdvance ? styles.enabled : ""}`}
-          >
-            Auto
-          </button>
+              <button
+                onClick={handleAdvanceOrPlay}
+                aria-label={isPlaying ? "Pause playback" : "Play measure"}
+                title={isPlaying ? "Pause playback" : "Play measure"}
+                className={`${styles.playButton} ${isPlaying ? styles.playing : styles.stopped}`}
+              >
+                {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+                <span>{isPlaying ? "Pause" : "Play"}</span>
+              </button>
 
-          <label className={styles.audioToggle}>
-            <input
-              type="checkbox"
-              checked={metronomeEnabled}
-              onChange={(event) => setMetronomeEnabled(event.target.checked)}
-            />
-            <Metronome aria-hidden="true" />
-            <span>Beat</span>
-          </label>
-          <label className={styles.audioToggle}>
-            <input
-              type="checkbox"
-              checked={audioPlayAlong}
-              onChange={(event) => setAudioPlayAlong(event.target.checked)}
-            />
-            <Volume2 aria-hidden="true" />
-            <span>Audio</span>
-          </label>
+              <label className={styles.tempoControl}>
+                <Metronome aria-hidden="true" />
+                <span className={styles.visuallyHidden}>Tempo</span>
+                <output className={styles.tempoValue}>{bpm}</output>
+                <input
+                  type="range"
+                  min="40"
+                  max="160"
+                  value={bpm}
+                  onChange={(event) => setBpm(Number(event.target.value))}
+                  aria-label="Tempo in beats per minute"
+                  className={styles.tempoSlider}
+                />
+                <span>BPM</span>
+              </label>
 
-          <div className={styles.displayOptions}>
-            <label title="Color notes by violin string" className={styles.displayToggle}>
-              <input type="checkbox" checked={useColorCoding} onChange={(event) => setUseColorCoding(event.target.checked)} />
-              <Palette aria-hidden="true" />
-              <span>Color</span>
-            </label>
-            <label title="Show note names" className={styles.displayToggle}>
-              <input type="checkbox" checked={showNoteNames} onChange={(event) => setShowNoteNames(event.target.checked)} />
-              <Eye aria-hidden="true" />
-              <span>Names</span>
-            </label>
-            <label title="Show finger numbers" className={styles.displayToggle}>
-              <input type="checkbox" checked={showFingerings} onChange={(event) => setShowFingerings(event.target.checked)} />
-              <Hash aria-hidden="true" />
-              <span>Fingers</span>
-            </label>
-          </div>
+              <button
+                onClick={() => setUseAutoAdvance(!useAutoAdvance)}
+                aria-pressed={useAutoAdvance}
+                title="Toggle automatic measure advance"
+                className={`${styles.autoAdvanceButton} ${useAutoAdvance ? styles.enabled : ""}`}
+              >
+                Auto
+              </button>
+
+              <label className={styles.audioToggle}>
+                <input
+                  type="checkbox"
+                  checked={metronomeEnabled}
+                  onChange={(event) => setMetronomeEnabled(event.target.checked)}
+                />
+                <Metronome aria-hidden="true" />
+                <span>Beat</span>
+              </label>
+              <label className={styles.audioToggle}>
+                <input
+                  type="checkbox"
+                  checked={audioPlayAlong}
+                  onChange={(event) => setAudioPlayAlong(event.target.checked)}
+                />
+                <Volume2 aria-hidden="true" />
+                <span>Audio</span>
+              </label>
+
+              <div className={styles.displayOptions}>
+                <label title="Color notes by violin string" className={styles.displayToggle}>
+                  <input type="checkbox" checked={useColorCoding} onChange={(event) => setUseColorCoding(event.target.checked)} />
+                  <Palette aria-hidden="true" />
+                  <span>Color</span>
+                </label>
+                <label title="Show note names" className={styles.displayToggle}>
+                  <input type="checkbox" checked={showNoteNames} onChange={(event) => setShowNoteNames(event.target.checked)} />
+                  <Eye aria-hidden="true" />
+                  <span>Names</span>
+                </label>
+                <label title="Show finger numbers" className={styles.displayToggle}>
+                  <input type="checkbox" checked={showFingerings} onChange={(event) => setShowFingerings(event.target.checked)} />
+                  <Hash aria-hidden="true" />
+                  <span>Fingers</span>
+                </label>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -311,7 +545,16 @@ export default function NotesDisplay({
             <div className={styles.scoreHeader}>
               <div className={styles.pieceHeading}>
                 <span className={styles.sectionLabel}>Current Piece</span>
-                <h2 className={styles.pieceTitle}>{currentPiece.title}</h2>
+                {isEditing ? (
+                  <input
+                    value={currentPiece.title}
+                    onChange={(event) => updateCurrentPiece((piece) => ({ ...piece, title: event.target.value }))}
+                    aria-label="Piece title"
+                    className={styles.titleInput}
+                  />
+                ) : (
+                  <h2 className={styles.pieceTitle}>{currentPiece.title}</h2>
+                )}
               </div>
               
               <div className={styles.measureHeading}>
@@ -322,8 +565,129 @@ export default function NotesDisplay({
               </div>
             </div>
 
+            {isEditing && (
+              <div className={styles.editorToolbar}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentMeasureIdx((index) => index - 1);
+                    setSelectedEditNoteIdx(-1);
+                  }}
+                  disabled={currentMeasureIdx === 0}
+                  aria-label="Previous measure"
+                  title="Previous measure"
+                  className={styles.editorIconButton}
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentMeasureIdx((index) => index + 1);
+                    setSelectedEditNoteIdx(-1);
+                  }}
+                  disabled={currentMeasureIdx >= currentPiece.measures.length - 1}
+                  aria-label="Next measure"
+                  title="Next measure"
+                  className={styles.editorIconButton}
+                >
+                  <ChevronRight aria-hidden="true" />
+                </button>
+                <button type="button" onClick={handleAddMeasure} className={styles.editorAction}>
+                  <Plus aria-hidden="true" />
+                  Add Measure
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteMeasure}
+                  disabled={currentPiece.measures.length <= 1}
+                  className={`${styles.editorAction} ${styles.dangerAction}`}
+                >
+                  <Trash2 aria-hidden="true" />
+                  Delete Measure
+                </button>
+                <label className={styles.editorField}>
+                  <span>Time signature</span>
+                  <select
+                    value={currentPiece.timeSignature}
+                    onChange={(event) => handleChangeTimeSignature(event.target.value)}
+                    aria-label="Time signature"
+                    className={styles.editorSelect}
+                  >
+                    {TIME_SIGNATURES.map((timeSignature) => (
+                      <option key={timeSignature} value={timeSignature}>{timeSignature}</option>
+                    ))}
+                  </select>
+                </label>
+                <span className={styles.toolbarDivider} aria-hidden="true" />
+                <button type="button" onClick={handleAddNote} className={styles.editorAction}>
+                  <Plus aria-hidden="true" />
+                  Add Note
+                </button>
+                <label className={styles.editorField}>
+                  <span>Selected note</span>
+                  <select
+                    value={selectedEditNote ? selectedEditNoteIdx : ""}
+                    onChange={(event) => setSelectedEditNoteIdx(event.target.value === "" ? -1 : Number(event.target.value))}
+                    aria-label="Select note to edit"
+                    className={styles.editorSelect}
+                  >
+                    <option value="">None</option>
+                    {currentMeasure.map((note, idx) => (
+                      <option key={idx} value={idx}>{`${idx + 1}: ${note.pitch}`}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.editorField}>
+                  <span>Duration</span>
+                  <select
+                    value={selectedEditNote?.duration ?? ""}
+                    onChange={(event) => handleChangeDuration(Number(event.target.value))}
+                    disabled={!selectedEditNote}
+                    aria-label="Note duration in beats"
+                    className={styles.editorSelect}
+                  >
+                    <option value="" disabled>Select a note</option>
+                    {NOTE_DURATIONS.filter((duration) => duration <= measureBeatCount).map((duration) => (
+                      <option key={duration} value={duration}>{duration} {duration === 1 ? "beat" : "beats"}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => handleMoveNote(1)}
+                  disabled={!selectedEditNote || PITCHES.indexOf(selectedEditNote.pitch) === PITCHES.length - 1}
+                  aria-label="Move note up"
+                  title="Move note up"
+                  className={styles.editorIconButton}
+                >
+                  <ArrowUp aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMoveNote(-1)}
+                  disabled={!selectedEditNote || PITCHES.indexOf(selectedEditNote.pitch) === 0}
+                  aria-label="Move note down"
+                  title="Move note down"
+                  className={styles.editorIconButton}
+                >
+                  <ArrowDown aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteNote}
+                  disabled={!selectedEditNote}
+                  aria-label="Delete selected note"
+                  title="Delete selected note"
+                  className={`${styles.editorIconButton} ${styles.dangerAction}`}
+                >
+                  <Trash2 aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
             {/* COMPLETION BANNER */}
-            {completedSession ? (
+            {completedSession && !isEditing ? (
               <div className={styles.completionMessage}>
                 <Sparkles aria-hidden="true" className={styles.completionIcon} />
                 <h3>Piece Complete!</h3>
@@ -342,22 +706,26 @@ export default function NotesDisplay({
                 
                 {/* SVG SHEET MUSIC DISPLAY */}
                 <MeasureSVG 
-                  measure={currentPiece.measures[currentMeasureIdx]}
+                  measure={currentMeasure}
+                  timeSignature={currentPiece.timeSignature}
                   activeNoteIdx={activeNoteIdx}
                   showNoteNames={showNoteNames}
                   showFingerings={showFingerings}
                   useColorCoding={useColorCoding}
+                  isEditing={isEditing}
+                  selectedEditNoteIdx={selectedEditNoteIdx}
+                  onSelectNote={setSelectedEditNoteIdx}
                 />
 
                 {/* BEAT PROGRESS INDICATOR */}
-                <div className={styles.beatProgress} aria-label="Beat progress">
-                  {[0, 1, 2, 3].map((b) => (
+                {!isEditing && <div className={styles.beatProgress} aria-label="Beat progress">
+                  {Array.from({ length: measureBeatCount }, (_, b) => (
                     <div 
                       key={b}
                       className={`${styles.beatIndicator} ${activeBeat === b ? styles.activeBeat : ""}`}
                     />
                   ))}
-                </div>
+                </div>}
               </div>
             )}
 
@@ -528,7 +896,17 @@ export default function NotesDisplay({
 // ============================================================================
 // MEASURE SVG NOTATION RENDERER
 // ============================================================================
-function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, useColorCoding }) {
+function MeasureSVG({
+  measure,
+  timeSignature,
+  activeNoteIdx,
+  showNoteNames,
+  showFingerings,
+  useColorCoding,
+  isEditing,
+  selectedEditNoteIdx,
+  onSelectNote,
+}: MeasureSVGProps) {
   // SVG Dimensions & Layout Constants
   const width = 600;
   const height = 240;
@@ -543,7 +921,8 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
   const staffEndX = width - 40;
 
   // Calculate note positions
-  const notePositionsX = [140, 260, 380, 500]; // 4 note slots per measure
+  const notePositionsX = [200, 305, 410, 515]; // 4 note slots per measure
+  const [timeNumerator, timeDenominator] = timeSignature.split("/");
 
   return (
     <svg 
@@ -554,10 +933,14 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
       <rect x="0" y="0" width={width} height={height} rx="16" fill="#020617" />
 
       {/* TREBLE CLEF */}
-      <g transform={`translate(${staffStartX + 10}, ${staffTopY + 8}) scale(0.45)`} fill="#94A3B8">
-        <path d="M16.5 63.6c-1.2-3.1-1.5-6.7-1.5-10.2 0-12.8 8.1-24.8 19.3-29.3 3.6-1.5 7.6-2.2 11.5-2.2 14.1 0 25.8 11.2 25.8 25.4 0 10.3-6.2 19.4-15.8 23.2-3.2 1.3-6.7 1.9-10.2 1.9-3.2 0-6.4-.6-9.4-1.8-1.5 2.8-2.3 6-2.3 9.4 0 5.4 2.2 10.4 6.1 14.1 3.8 3.6 8.9 5.6 14.2 5.6 10.8 0 19.8-7.9 21.4-18.6h8.4c-1.7 15.3-14.6 27-30 27-7.7 0-14.9-3.1-20.3-8.6-5.5-5.5-8.6-12.8-8.6-20.5 0-5.8 1.8-11.3 5.1-15.8z" />
-        <path d="M28 20 C28 5, 45 5, 45 20 C45 35, 28 35, 28 20 Z" />
-      </g>
+      <image
+        href="/images/g-clef.svg"
+        x={staffStartX + 4}
+        y={staffTopY - 22}
+        width="70"
+        height="120"
+        aria-label="Treble clef"
+      />
 
       {/* STAFF LINES (5 Lines) */}
       {staffLines.map((y, idx) => (
@@ -576,9 +959,9 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
       <line x1={staffStartX} y1={staffLines[0]} x2={staffStartX} y2={staffLines[4]} stroke="#94A3B8" strokeWidth="4" />
       <line x1={staffEndX} y1={staffLines[0]} x2={staffEndX} y2={staffLines[4]} stroke="#94A3B8" strokeWidth="6" />
 
-      {/* TIME SIGNATURE (4/4) */}
-      <text x={staffStartX + 32} y={staffLines[1] + 6} fill="#CBD5E1" fontSize="24" fontWeight="bold" textAnchor="middle">4</text>
-      <text x={staffStartX + 32} y={staffLines[3] + 6} fill="#CBD5E1" fontSize="24" fontWeight="bold" textAnchor="middle">4</text>
+      {/* TIME SIGNATURE */}
+      <text x={staffStartX + 85} y={staffLines[1] + 6} fill="#CBD5E1" fontSize="24" fontWeight="bold" textAnchor="middle">{timeNumerator}</text>
+      <text x={staffStartX + 85} y={staffLines[3] + 6} fill="#CBD5E1" fontSize="24" fontWeight="bold" textAnchor="middle">{timeDenominator}</text>
 
       {/* RENDER NOTES IN MEASURE */}
       {measure.map((note, idx) => {
@@ -586,7 +969,9 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
         const stringInfo = STRING_COLORS[pitchData.string];
         const noteColor = useColorCoding ? stringInfo.hex : '#F8FAFC';
 
-        const cx = notePositionsX[idx] || (140 + idx * 100);
+        const cx = measure.length > 4
+          ? 200 + idx * (315 / (measure.length - 1))
+          : notePositionsX[idx] || (200 + idx * 100);
         const baseDuration = 2 ** Math.floor(Math.log2(note.duration));
         const isDotted = note.duration === baseDuration * 1.5;
         const noteValue = isDotted ? baseDuration : note.duration;
@@ -600,13 +985,38 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
         const noteY = bottomLineY - (pitchData.pitchStep - 2) * (lineSpacing / 2);
 
         const isActive = activeNoteIdx === idx;
+        const isSelected = isEditing && selectedEditNoteIdx === idx;
         const stemUp = noteY > staffLines[2]; // Stem up if below middle line
         const stemX = stemUp ? cx + 11 : cx - 11;
         const stemEndY = stemUp ? noteY - 48 : noteY + 48;
 
         return (
-          <g key={idx} className="transition-all duration-200">
-            
+          <g
+            key={idx}
+            className="transition-all duration-200"
+            onClick={isEditing ? () => onSelectNote(idx) : undefined}
+            onKeyDown={isEditing ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelectNote(idx);
+              }
+            } : undefined}
+            role={isEditing ? "button" : undefined}
+            tabIndex={isEditing ? 0 : undefined}
+            aria-label={isEditing ? `Select ${note.pitch}, ${note.duration} beats` : undefined}
+          >
+            {isSelected && (
+              <circle
+                cx={cx}
+                cy={noteY}
+                r="23"
+                fill="none"
+                stroke="#fbbf24"
+                strokeWidth="3"
+                strokeDasharray="4 3"
+              />
+            )}
+
             {/* ACTIVE NOTE HIGHLIGHT GLOW */}
             {isActive && (
               <circle 
@@ -738,5 +1148,75 @@ function MeasureSVG({ measure, activeNoteIdx, showNoteNames, showFingerings, use
       })}
 
     </svg>
+  );
+}
+
+function splitMeasureByCapacity(
+  measure: MeasureObject,
+  beatCapacity: number,
+  selectedNoteIdx = -1,
+) {
+  const measures: MeasureObject[] = [[]];
+  let accumulatedBeats = 0;
+  let selectedLocation: { measureOffset: number; noteIndex: number } | undefined;
+
+  measure.forEach((note, idx) => {
+    let currentMeasure = measures[measures.length - 1];
+    if (currentMeasure.length > 0 && accumulatedBeats + note.duration > beatCapacity) {
+      measures.push([]);
+      accumulatedBeats = 0;
+      currentMeasure = measures[measures.length - 1];
+    }
+
+    if (idx === selectedNoteIdx) {
+      selectedLocation = {
+        measureOffset: measures.length - 1,
+        noteIndex: currentMeasure.length,
+      };
+    }
+    currentMeasure.push(note);
+    accumulatedBeats += note.duration;
+  });
+
+  return { measures, selectedLocation };
+}
+
+function isMusicObject(value: unknown): value is MusicObject {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const piece = value as Record<string, unknown>;
+  if (
+    typeof piece.id !== "string" ||
+    !piece.id.trim() ||
+    typeof piece.title !== "string" ||
+    !piece.title.trim() ||
+    typeof piece.timeSignature !== "string" ||
+    typeof piece.measures === "undefined" ||
+    !Array.isArray(piece.measures) ||
+    piece.measures.length === 0 ||
+    (piece.keySignature !== undefined && typeof piece.keySignature !== "string")
+  ) {
+    return false;
+  }
+
+  if (!TIME_SIGNATURES.includes(piece.timeSignature as (typeof TIME_SIGNATURES)[number])) {
+    return false;
+  }
+
+  const beatCapacity = getMeasureBeatCount(piece.timeSignature);
+  return piece.measures.every((measure) =>
+    Array.isArray(measure) &&
+    measure.every((note) =>
+      typeof note === "object" &&
+      note !== null &&
+      !Array.isArray(note) &&
+      typeof note.pitch === "string" &&
+      Object.prototype.hasOwnProperty.call(PITCH_MAP, note.pitch) &&
+      typeof note.duration === "number" &&
+      NOTE_DURATIONS.includes(note.duration),
+    ) &&
+    measure.reduce((total, note) => total + note.duration, 0) <= beatCapacity,
   );
 }

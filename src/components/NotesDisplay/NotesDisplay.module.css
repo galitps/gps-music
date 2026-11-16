@@ -84,7 +84,10 @@
 .iconButton,
 .playButton,
 .autoAdvanceButton,
-.audioToggle {
+.audioToggle,
+.modeButton,
+.editorAction,
+.editorIconButton {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -218,6 +221,53 @@
   white-space: nowrap;
 }
 
+.modeButton,
+.editorAction,
+.editorIconButton {
+  min-height: 36px;
+  padding: 7px 10px;
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.modeButton > svg,
+.editorAction > svg,
+.editorIconButton > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.modeButton:hover,
+.editorAction:hover:not(:disabled),
+.editorIconButton:hover:not(:disabled) {
+  background: #475569;
+}
+
+.modeEdit {
+  background: #4f46e5;
+  color: white;
+}
+
+.editorAction {
+  white-space: nowrap;
+}
+
+.dangerAction {
+  color: #fecaca;
+}
+
+.editorAction:disabled,
+.editorIconButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.fileInput {
+  display: none;
+}
+
 .visuallyHidden {
   position: absolute;
   width: 1px;
@@ -290,6 +340,71 @@
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.titleInput {
+  width: min(60vw, 520px);
+  min-height: 38px;
+  margin-top: 3px;
+  padding: 4px 8px;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #fff;
+  font: inherit;
+  font-size: clamp(20px, 3vw, 30px);
+  font-weight: 800;
+}
+
+.editorToolbar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid #1e293b;
+}
+
+.editorField {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.editorSelect {
+  min-height: 34px;
+  max-width: 150px;
+  padding: 5px 8px;
+  border: 1px solid #475569;
+  border-radius: 7px;
+  background: #1e293b;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 12px;
+}
+
+.editorSelect:disabled {
+  opacity: 0.45;
+}
+
+.toolbarDivider {
+  align-self: stretch;
+  margin: 0 2px;
+  border-left: 1px solid #475569;
+}
+
+.editorIconButton {
+  width: 36px;
+  padding: 7px;
+}
+
+.editorIconButton.dangerAction:hover:not(:disabled) {
+  background: #7f1d1d;
 }
 
 .measureHeading {

@@ -6,12 +6,14 @@ type MusicSelectorProps = {
   repertoire: readonly MusicObject[];
   selectedPieceId: string;
   onSelectPiece: (pieceId: string) => void;
+  onCreateNew: () => void;
 };
 
 export default function MusicSelector({
   repertoire,
   selectedPieceId,
   onSelectPiece,
+  onCreateNew,
 }: MusicSelectorProps) {
   return (
     <div className={styles.repertoireControl}>
@@ -22,9 +24,16 @@ export default function MusicSelector({
       <select
         id="repertoire-select"
         value={selectedPieceId}
-        onChange={(event) => onSelectPiece(event.target.value)}
+        onChange={(event) => {
+          if (event.target.value === "__new__") {
+            onCreateNew();
+          } else {
+            onSelectPiece(event.target.value);
+          }
+        }}
         className={styles.repertoireDropdown}
       >
+        <option value="__new__">&lt;New&gt;</option>
         {repertoire.map((piece) => (
           <option key={piece.id} value={piece.id}>
             {piece.title}

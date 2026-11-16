@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { getMeasureBeatCount } from "@/types/music";
 import type { MusicObject } from "@/types/music";
 import { PITCH_MAP } from "@/components/NotesDisplay/NotesDisplay";
 
@@ -109,6 +110,7 @@ export default function MusicPlayer({
     }
 
     const beatDurationMs = (60 / bpm) * 1000;
+    const beatsPerMeasure = getMeasureBeatCount(selectedPiece.timeSignature);
     let beatCounter = 0;
     setActiveBeat(0);
 
@@ -128,11 +130,11 @@ export default function MusicPlayer({
     });
 
     const runBeat = () => {
-      if (beatCounter >= 4) {
+      if (beatCounter >= beatsPerMeasure) {
         return;
       }
 
-      const beatNum = beatCounter % 4;
+      const beatNum = beatCounter % beatsPerMeasure;
       setActiveBeat(beatNum);
 
       if (metronomeEnabled) {
@@ -140,7 +142,7 @@ export default function MusicPlayer({
       }
 
       beatCounter++;
-      if (beatCounter === 4) {
+      if (beatCounter === beatsPerMeasure) {
         if (intervalId !== undefined) {
           clearInterval(intervalId);
         }
